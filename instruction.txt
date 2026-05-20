@@ -1,0 +1,29 @@
+Python project called finance_da_project with the following exact structure:
+
+FOLDER STRUCTURE:
+finance_da_project/
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── exports/
+├── notebooks/
+│   ├── 01_eda_exploration.ipynb
+│   └── 02_model_experiments.ipynb
+├── src/
+│   ├── __init__.py
+│   ├── data_ingestion.py
+│   ├── data_cleaning.py
+│   ├── eda.py
+│   ├── metrics.py
+│   ├── forecasting.py
+│   ├── monte_carlo.py
+│   └── export.py
+├── scenario_params/
+│   └── scenarios.csv
+├── outputs/
+│   ├── plots/
+│   └── reports/
+├── main.py
+├── config.py
+├── requirements.txt
+└── README.md
