@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import date as _date
 from pathlib import Path
 
 import pandas as pd
@@ -52,6 +53,9 @@ def fetch_prices(
 
     Returns a long-format DataFrame with columns:
         date, ticker, open, high, low, close, volume
+
+    Note: volume uses pandas nullable Int64 (not int64) to handle NaN on
+    trading days with no reported volume without losing other rows.
     """
     logger.info(f"Fetching prices for {len(tickers)} tickers [{start} to {end}]")
 
@@ -61,8 +65,6 @@ def fetch_prices(
         end=end,
         interval=interval,
         auto_adjust=True,
-        group_by="ticker",
-        threads=True,
         progress=False,
     )
 
@@ -123,21 +125,15 @@ def fetch_prices(
     return prices
 
 
-def _fetch_single_metadata(ticker: str) -> dict:
-    """Fetch .info for one ticker; raises on network errors (tenacity will retry)."""
-    info = yf.Ticker(ticker).info
-    return info
-
-
 @retry(
-    retry=retry_if_exception_type(Exception),
+    retry=retry_if_exception_type((ConnectionError, TimeoutError, OSError)),
     stop=stop_after_attempt(config.MAX_RETRIES),
     wait=wait_exponential(multiplier=1, min=1, max=8),
     reraise=True,
 )
-def _fetch_single_metadata_with_retry(ticker: str) -> dict:
-    """Wrapped with tenacity retry/backoff for flaky .info calls."""
-    return _fetch_single_metadata(ticker)
+def _fetch_single_metadata(ticker: str) -> dict:
+    """Fetch .info for one ticker with exponential-backoff retry on network errors."""
+    return yf.Ticker(ticker).info
 
 
 def fetch_metadata(tickers: list[str]) -> dict[str, dict]:
@@ -153,7 +149,7 @@ def fetch_metadata(tickers: list[str]) -> dict[str, dict]:
     for ticker in tickers:
         logger.info(f"{ticker}: fetching metadata …")
         try:
-            info = _fetch_single_metadata_with_retry(ticker)
+            info = _fetch_single_metadata(ticker)
             if not info:
                 logger.warning(f"{ticker}: .info returned empty dict — storing nulls")
                 info = {}
@@ -205,7 +201,7 @@ def run_ingestion() -> dict:
     if not tickers:
         raise ValueError("config.TICKERS is empty — nothing to fetch")
 
-    if start > end:
+    if _date.fromisoformat(start) > _date.fromisoformat(end):
         raise ValueError(f"DATE_START ({start}) must be before DATE_END ({end})")
 
     logger.info(f"run_ingestion: tickers={tickers}, range=[{start}, {end}], interval={interval}")
@@ -245,12 +241,7 @@ def run_ingestion() -> dict:
         "duration_sec": duration,
     }
 
-    logger.info(f"Ingestion complete in {duration}s: {summary}")
-    print("\n-- Ingestion Summary --------------------------------------------------")
-    for k, v in summary.items():
-        print(f"  {k}: {v}")
-    print("-----------------------------------------------------------------------\n")
-
+    logger.info(f"Ingestion complete in {duration}s — {summary}")
     return summary
 
 

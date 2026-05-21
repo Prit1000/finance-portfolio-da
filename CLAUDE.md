@@ -36,7 +36,7 @@ Each `src/` module exposes one public orchestrator:
 def run_<step>() -> dict:   # called by main.py; returns a summary dict
 ```
 
-Internal helpers are prefixed with `_`. All logging uses `loguru.logger`; `print()` is only for the end-of-run console summary.
+Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print()` is banned in all `src/` modules — the end-of-run console summary belongs in `main.py` only.
 
 ### `src/` Modules (pipeline order)
 
@@ -92,3 +92,9 @@ outputs/plots/   outputs/reports/   data/exports/
 ### Known yfinance Behaviour (v1.x)
 
 `yf.download()` with multiple tickers returns a `MultiIndex` DataFrame where **level 0 = ticker symbol, level 1 = field name** (title-cased: `Open`, `High`, etc.). The ingestion module detects this dynamically. Do not change to per-ticker loop — the batch call is ~10× faster.
+
+**Removed v1.x params — do not pass these to `yf.download()`:**
+- `group_by` — removed in v1.x; column ordering is now fixed (ticker, field)
+- `threads` — removed in v1.x; threading is handled internally by yfinance
+
+**Retry scope:** `_fetch_single_metadata` retries only on `(ConnectionError, TimeoutError, OSError)` — do not widen to bare `Exception`, as that would retry programming errors and add unnecessary delay.

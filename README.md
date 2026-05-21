@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 2–7 are pending implementation. Step 1 is fully operational.
+Steps 2–7 are pending implementation. Step 1 is fully operational — ingestion summary is written to the pipeline log, not printed to console.
 
 ---
 
@@ -147,7 +147,7 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 | `yfinance` | Market data (Step 1 only — no other module imports it) |
 | `pandas` / `numpy` | Data manipulation |
 | `loguru` | Structured logging to console + file |
-| `tenacity` | Retry / exponential backoff for flaky API calls |
+| `tenacity` | Retry / exponential backoff for flaky `.info` calls (`ConnectionError`, `TimeoutError`, `OSError`) |
 | `matplotlib` / `seaborn` / `plotly` | Visualisation |
 | `statsmodels` | ARIMA forecasting |
 | `prophet` | Prophet time-series forecasting |
