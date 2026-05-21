@@ -8,7 +8,7 @@ from pathlib import Path
 
 import config
 from src import data_ingestion
-# from src import data_cleaning       # TODO: Step 2
+from src import data_cleaning
 # from src import eda                  # TODO: Step 3
 # from src import metrics              # TODO: Step 4
 # from src import forecasting          # TODO: Step 5
@@ -32,9 +32,10 @@ def main():
     summary = data_ingestion.run_ingestion()
     logger.info(f"Ingestion summary: {summary}")
 
-    # ── Step 2: Data Cleaning ──────── (pending) ──────────────────────────
-    # logger.info("STEP 2/7 — Data Cleaning")
-    # data_cleaning.run_cleaning()
+    # ── Step 2: Data Cleaning ─────────────────────────────────────────────
+    logger.info("STEP 2/7 — Data Cleaning")
+    cleaning_summary = data_cleaning.run_cleaning()
+    logger.info(f"Cleaning summary: {cleaning_summary}")
 
     # ── Step 3: EDA ──────────────── (pending) ────────────────────────────
     # ── Step 4: Metrics ──────────── (pending) ────────────────────────────

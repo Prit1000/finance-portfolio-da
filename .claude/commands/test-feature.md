@@ -1,5 +1,5 @@
 ---
-description: Writes and runs tests for a specific Finance Portfolio Pipeline module. Pass the spec name as argument e.g. /test-feature 02-data-cleaning
+description: Writes and runs tests for a specific Finance Portfolio Pipeline module. Pass the spec name as argument e.g. /test-feature 01-data-integestion
 allowed-tools: Bash(python -m pytest)
 ---
 
@@ -8,7 +8,7 @@ in $ARGUMENTS.
 
 If no argument is provided, stop immediately and say:
 > "Please provide a spec name. Usage: /test-feature
-> <spec-name> e.g. /test-feature 02-data-cleaning"
+> <spec-name> e.g. /test-feature 01-data-integestion"
 
 If `.claude/specs/$ARGUMENTS.md` does not exist, stop
 immediately and say:

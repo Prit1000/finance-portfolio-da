@@ -1,5 +1,5 @@
 ---
-description: Runs parallel security and quality code review for a specific Finance Portfolio Pipeline module. Pass the spec name as argument e.g. /code-review-feature 02-data-cleaning
+description: Runs parallel security and quality code review for a specific Finance Portfolio Pipeline module. Pass the spec name as argument e.g. /code-review-feature 01-data-integestion
 allowed-tools: Bash(git diff), Bash(git diff --staged)
 ---
 
@@ -9,7 +9,7 @@ specified in $ARGUMENTS.
 If no argument is provided, stop immediately and say:
 > "Please provide a spec name. Usage:
 > /code-review-feature <spec-name> e.g.
-> /code-review-feature 02-data-cleaning"
+> /code-review-feature 01-data-integestion"
 
 If `.claude/specs/$ARGUMENTS.md` does not exist, stop
 immediately and say:

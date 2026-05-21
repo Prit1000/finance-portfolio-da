@@ -22,3 +22,10 @@ PROCESSED_DATA_DIR: Path = Path("data/processed")
 EXPORTS_DATA_DIR: Path = Path("data/exports")
 LOG_DIR: Path = Path("logs")
 OUTPUTS_DIR: Path = Path("outputs")
+
+# ── Data Cleaning ─────────────────────────────────────────────────────────────
+MIN_COVERAGE_PCT: float = 0.80
+OUTLIER_RETURN_THRESHOLD: float = 0.25
+FILL_METHOD: str = "ffill"
+MAX_CONSECUTIVE_FILLS: int = 3
+TRADING_CALENDAR: str = "NYSE"

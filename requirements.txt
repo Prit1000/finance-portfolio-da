@@ -22,6 +22,11 @@ prophet==1.1.6               # Prophet (installs cmdstanpy as backend)
 fpdf2==2.8.3                 # PDF report generation
 jinja2==3.1.6                # HTML report templating
 
+# ── Data Cleaning ─────────────────────────────────────────────────────────────
+pandera==0.20.4
+pandas_market_calendars==4.4.1
+pyarrow==19.0.1
+
 # ── Environment & Logging ─────────────────────────────────────────────────────
 python-dotenv==1.1.0
 loguru==0.7.3
