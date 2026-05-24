@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 3–7 are pending implementation. Steps 1–2 are fully operational — module summaries are written to the pipeline log, not printed to console.
+Steps 4–7 are pending implementation. Steps 1–3 are fully operational — module summaries are written to the pipeline log, not printed to console.
 
 ---
 
@@ -55,9 +55,19 @@ logs/pipeline_YYYY-MM-DD.log
 ### Output after Step 2
 
 ```
-data/processed/prices_clean.parquet   — cleaned & validated OHLCV (snappy Parquet)
-data/processed/returns.parquet        — simple_return, log_return per (date, ticker)
-data/processed/cleaning_report.json  — audit counts (duplicates, gaps, outliers)
+data/processed/prices_clean.parquet    — cleaned & validated OHLCV (snappy Parquet)
+data/processed/returns_daily.parquet   — simple_return, log_return per (date, ticker)
+data/processed/cleaning_report.json   — audit counts (duplicates, gaps, outliers)
+```
+
+### Output after Step 3
+
+```
+outputs/plots/01_price_trends/         — close price + rolling MA; volume bar chart per ticker
+outputs/plots/02_return_distributions/ — histogram + KDE, Q-Q plot per ticker; combined boxplot
+outputs/plots/03_volatility/           — rolling annualized vol per ticker; monthly vol heatmap
+outputs/plots/04_correlations/         — correlation matrix; top-pair scatter plots; sector heatmap
+outputs/reports/eda_summary.json       — distribution stats, monthly vol, correlation matrix, outlier report
 ```
 
 ---
@@ -75,6 +85,16 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | `MAX_RETRIES` | `3` | Retry attempts for flaky API calls |
 | `RAW_DATA_DIR` | `Path("data/raw")` | Raw output directory |
 | `LOG_DIR` | `Path("logs")` | Log file directory |
+| `PLOTS_DIR` | `Path("outputs/plots")` | EDA chart output directory |
+| `REPORTS_DIR` | `Path("outputs/reports")` | EDA/export report directory |
+| `EDA_PLOT_DPI` | `300` | PNG resolution (print-quality) |
+| `EDA_ROLLING_WINDOWS` | `[20, 50]` | Rolling MA windows for price trend charts |
+| `EDA_VOL_WINDOW` | `30` | Rolling volatility window (days) |
+| `EDA_TRADING_DAYS_PER_YEAR` | `252` | Annualization factor |
+| `EDA_TOP_N_CORRELATIONS` | `3` | Number of top correlated pairs to scatter-plot |
+| `EDA_TOP_N_MOVES` | `10` | Top single-day moves per ticker in outlier report |
+| `EDA_MIN_QQ_ROWS` | `30` | Minimum rows required to generate a Q-Q plot |
+| `EDA_PLOT_STYLE` | `"seaborn-v0_8-whitegrid"` | Matplotlib style |
 
 ---
 
@@ -89,7 +109,7 @@ finance-portfolio-da/
 │   ├── data_ingestion.py     # Step 1 — Yahoo Finance fetch (DONE)
 │   ├── data_cleaning.py      # Step 2 — Normalise & fill gaps (DONE)
 │   ├── schemas.py            # Pandera schemas for pipeline data contracts
-│   ├── eda.py                # Step 3 — Exploratory analysis
+│   ├── eda.py                # Step 3 — Exploratory analysis (DONE)
 │   ├── metrics.py            # Step 4 — Portfolio metrics
 │   ├── forecasting.py        # Step 5 — ARIMA / Prophet
 │   ├── monte_carlo.py        # Step 6 — Simulation
@@ -101,7 +121,7 @@ finance-portfolio-da/
 │   └── unit/                 # Per-module unit tests
 ├── data/
 │   ├── raw/                  # prices_raw.csv, metadata.json
-│   └── processed/            # prices_clean.parquet, returns.parquet, cleaning_report.json
+│   └── processed/            # prices_clean.parquet, returns_daily.parquet, cleaning_report.json
 ├── outputs/
 │   ├── plots/                # EDA charts
 │   └── reports/              # Final reports
@@ -145,7 +165,7 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 | File | Format | Contents |
 |---|---|---|
 | `prices_clean.parquet` | Parquet (snappy) | Cleaned OHLCV — same schema as raw, validated by `prices_clean_schema` |
-| `returns.parquet` | Parquet (snappy) | `simple_return`, `log_return` per (date, ticker) |
+| `returns_daily.parquet` | Parquet (snappy) | `simple_return`, `log_return` per (date, ticker) |
 | `cleaning_report.json` | JSON | Audit counts: duplicates removed, rows dropped, gaps filled, outliers flagged |
 
 ### `data/raw/metadata.json`
