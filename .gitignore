@@ -43,3 +43,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporarily excluded from review — add back when ready
+notebooks/
+scripts/

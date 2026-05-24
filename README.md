@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 2–7 are pending implementation. Step 1 is fully operational — ingestion summary is written to the pipeline log, not printed to console.
+Steps 3–7 are pending implementation. Steps 1–2 are fully operational — module summaries are written to the pipeline log, not printed to console.
 
 ---
 
@@ -52,6 +52,14 @@ data/raw/metadata.json    — sector, market cap, beta, P/E, etc. per ticker
 logs/pipeline_YYYY-MM-DD.log
 ```
 
+### Output after Step 2
+
+```
+data/processed/prices_clean.parquet   — cleaned & validated OHLCV (snappy Parquet)
+data/processed/returns.parquet        — simple_return, log_return per (date, ticker)
+data/processed/cleaning_report.json  — audit counts (duplicates, gaps, outliers)
+```
+
 ---
 
 ## Configuration (`config.py`)
@@ -79,7 +87,8 @@ finance-portfolio-da/
 ├── requirements.txt
 ├── src/
 │   ├── data_ingestion.py     # Step 1 — Yahoo Finance fetch (DONE)
-│   ├── data_cleaning.py      # Step 2 — Normalise & fill gaps
+│   ├── data_cleaning.py      # Step 2 — Normalise & fill gaps (DONE)
+│   ├── schemas.py            # Pandera schemas for pipeline data contracts
 │   ├── eda.py                # Step 3 — Exploratory analysis
 │   ├── metrics.py            # Step 4 — Portfolio metrics
 │   ├── forecasting.py        # Step 5 — ARIMA / Prophet
@@ -87,9 +96,12 @@ finance-portfolio-da/
 │   └── export.py             # Step 7 — Reports & exports
 ├── scenario_params/
 │   └── scenarios.csv         # Parameter rows for Steps 5 & 6
+├── tests/
+│   ├── conftest.py           # Shared fixtures (sample_prices_raw, tmp dirs)
+│   └── unit/                 # Per-module unit tests
 ├── data/
 │   ├── raw/                  # prices_raw.csv, metadata.json
-│   └── processed/            # Cleaned data (Step 2 output)
+│   └── processed/            # prices_clean.parquet, returns.parquet, cleaning_report.json
 ├── outputs/
 │   ├── plots/                # EDA charts
 │   └── reports/              # Final reports
@@ -98,6 +110,20 @@ finance-portfolio-da/
 │   └── 02_model_experiments.ipynb
 └── logs/                     # pipeline_YYYY-MM-DD.log
 ```
+
+---
+
+## Testing
+
+```bash
+# Run the full test suite
+pytest tests/
+
+# Run tests for a single module
+pytest tests/unit/test_02-data-cleaning.py -v
+```
+
+Tests are spec-driven — each test file is derived from the module's spec in `.claude/specs/`, not from reading the implementation. Shared fixtures live in `tests/conftest.py`.
 
 ---
 
@@ -113,6 +139,14 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 | `ticker` | string | Uppercase symbol |
 | `open` / `high` / `low` / `close` | float64 | Adjusted OHLC |
 | `volume` | Int64 | Daily volume |
+
+### `data/processed/` (Step 2 outputs)
+
+| File | Format | Contents |
+|---|---|---|
+| `prices_clean.parquet` | Parquet (snappy) | Cleaned OHLCV — same schema as raw, validated by `prices_clean_schema` |
+| `returns.parquet` | Parquet (snappy) | `simple_return`, `log_return` per (date, ticker) |
+| `cleaning_report.json` | JSON | Audit counts: duplicates removed, rows dropped, gaps filled, outliers flagged |
 
 ### `data/raw/metadata.json`
 
@@ -146,6 +180,9 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 |---|---|
 | `yfinance` | Market data (Step 1 only — no other module imports it) |
 | `pandas` / `numpy` | Data manipulation |
+| `pandera` | Schema validation at module boundaries (`src/schemas.py`) |
+| `pandas_market_calendars` | Trading calendar for gap-filling in Step 2 |
+| `pyarrow` | Parquet read/write for processed data |
 | `loguru` | Structured logging to console + file |
 | `tenacity` | Retry / exponential backoff for flaky `.info` calls (`ConnectionError`, `TimeoutError`, `OSError`) |
 | `matplotlib` / `seaborn` / `plotly` | Visualisation |
@@ -153,4 +190,5 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 | `prophet` | Prophet time-series forecasting |
 | `scipy` | Statistical metrics |
 | `fpdf2` / `jinja2` | PDF and HTML report generation |
+| `pytest` | Test suite |
 | `jupyter` | Exploratory notebooks |

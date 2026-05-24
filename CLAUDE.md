@@ -18,6 +18,15 @@ python -c "from src import data_ingestion; print(data_ingestion.run_ingestion())
 # Install dependencies
 pip install -r requirements.txt
 
+# Run the full test suite
+pytest tests/
+
+# Run tests for a single module
+pytest tests/unit/test_02-data-cleaning.py -v
+
+# Run a single test by name
+pytest tests/unit/test_02-data-cleaning.py::test_load_raw_basic -v
+
 # Launch notebooks
 jupyter notebook notebooks/
 ```
@@ -43,7 +52,7 @@ Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print
 | # | Module | Status | Responsibility |
 |---|---|---|---|
 | 1 | `data_ingestion.py` | **Done** | Fetch OHLCV + metadata from Yahoo Finance; write to `data/raw/` |
-| 2 | `data_cleaning.py` | Pending | Normalise, fill gaps, handle outliers; write to `data/processed/` |
+| 2 | `data_cleaning.py` | **Done** | Normalise, fill gaps, handle outliers; write to `data/processed/` |
 | 3 | `eda.py` | Pending | Exploratory charts/stats; save to `outputs/plots/` |
 | 4 | `metrics.py` | Pending | Portfolio metrics (returns, Sharpe, drawdown, etc.) |
 | 5 | `forecasting.py` | Pending | ARIMA / Prophet; iterates over `scenario_params/scenarios.csv` |
@@ -70,6 +79,11 @@ outputs/plots/   outputs/reports/   data/exports/
 - **`config.py` is the only place for configurable values.** No hardcoded tickers, dates, or paths in any `src/` file.
 - **Long-format DataFrames only.** Wide-format breaks when new tickers are added.
 - **`scenario_params/scenarios.csv`** drives `forecasting.py` and `monte_carlo.py` — each row is one named scenario with parameter overrides; modules iterate over rows rather than accepting hardcoded params.
+- **`src/schemas.py`** holds Pandera schemas (`prices_clean_schema`, `returns_schema`) enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks.
+
+### Spec-Driven Development
+
+Each module has a spec in `.claude/specs/<step>.md` (e.g. `02-data-cleaning.md`). Tests are generated from the spec, not by reading the implementation. When adding a new module, write the spec first.
 
 ### Data Contracts (Step 1 outputs, consumed by all downstream steps)
 
@@ -84,6 +98,14 @@ outputs/plots/   outputs/reports/   data/exports/
 
 **`data/raw/metadata.json`** — keyed by ticker, 9 fields each:
 `shortName`, `sector`, `industry`, `marketCap`, `currency`, `beta`, `trailingPE`, `fiftyTwoWeekHigh`, `fiftyTwoWeekLow`. Missing fields stored as `null`.
+
+**Step 2 outputs (`data/processed/`)** — written as Parquet (snappy, via pyarrow):
+
+| File | Contents |
+|---|---|
+| `prices_clean.parquet` | Cleaned OHLCV, same schema as `prices_raw.csv` plus validated by `prices_clean_schema` |
+| `returns.parquet` | Per-(date, ticker): `simple_return`, `log_return` — validated by `returns_schema` |
+| `cleaning_report.json` | Audit counts: duplicates removed, rows dropped, gaps filled, outliers flagged |
 
 ### Logging
 
