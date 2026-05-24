@@ -9,7 +9,7 @@ from pathlib import Path
 import config
 from src import data_ingestion
 from src import data_cleaning
-# from src import eda                  # TODO: Step 3
+from src import eda
 # from src import metrics              # TODO: Step 4
 # from src import forecasting          # TODO: Step 5
 # from src import monte_carlo          # TODO: Step 6
@@ -37,7 +37,11 @@ def main():
     cleaning_summary = data_cleaning.run_cleaning()
     logger.info(f"Cleaning summary: {cleaning_summary}")
 
-    # ── Step 3: EDA ──────────────── (pending) ────────────────────────────
+    # ── Step 3: EDA ───────────────────────────────────────────────────────
+    logger.info("STEP 3/7 — Exploratory Data Analysis")
+    eda_summary = eda.run_eda()
+    logger.info(f"EDA summary: {eda_summary}")
+
     # ── Step 4: Metrics ──────────── (pending) ────────────────────────────
     # ── Step 5: Forecasting ──────── (pending) ────────────────────────────
     # ── Step 6: Monte Carlo ──────── (pending) ────────────────────────────
