@@ -1,1 +1,7 @@
-﻿scenario_name,param_1,param_2
+scenario_name,model,target,horizon_days,confidence_level,tickers,notes
+arima_returns_30d,arima_returns,returns,30,0.95,all,ARIMA on daily returns baseline
+arima_log_prices_30d,arima_log_prices,prices,30,0.95,all,ARIMA on log prices
+prophet_30d,prophet,prices,30,0.95,all,Prophet with yearly and weekly seasonality
+naive_random_walk,naive_random_walk,returns,30,0.95,all,Random walk null hypothesis
+naive_drift,naive_drift,returns,30,0.95,all,Drift model baseline
+naive_mean,naive_mean,returns,30,0.95,all,Historical mean baseline

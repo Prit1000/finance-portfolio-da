@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 1–4 are fully operational — module summaries are written to the pipeline log, not printed to console. Steps 5–7 are pending implementation.
+Steps 1–5 are fully operational — module summaries are written to the pipeline log, not printed to console. Steps 6–7 are pending implementation.
 
 ---
 
@@ -80,6 +80,15 @@ data/processed/drawdown_series.parquet     — per (date, ticker): close, runnin
 outputs/reports/metrics_summary.json       — per-ticker and portfolio metrics with config snapshot
 ```
 
+### Output after Step 5
+
+```
+data/processed/forecasts.parquet           — long format: (scenario_name, ticker, model_type, target, forecast_date, forecast, lower_ci, upper_ci, confidence_level)
+data/processed/forecast_metrics.parquet    — long format: (scenario_name, ticker, model_type, metric_name, value); metrics: rmse, mae, mape, directional_accuracy, coverage_rate, etc.
+data/processed/stationarity_tests.parquet  — ADF test results per (ticker, series_type); series_type ∈ {returns, log_prices}
+outputs/reports/forecasting_summary.json   — per-scenario stats, best model per ticker, stationarity counts, config snapshot
+```
+
 ---
 
 ## Configuration (`config.py`)
@@ -115,6 +124,21 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | `ROLLING_CORR_WINDOW` | `60` | Rolling correlation window (trading days) |
 | `METRICS_TRADING_DAYS_PER_YEAR` | `252` | Annualization factor for metrics |
 | `EXCLUDE_BENCHMARK_FROM_PORTFOLIO` | `True` | Drop benchmark ticker from portfolio aggregation |
+| `SCENARIOS_CSV` | `Path("scenario_params/scenarios.csv")` | Scenario parameter file for Steps 5 & 6 |
+| `FORECAST_HORIZON_DAYS` | `30` | Default forecast horizon (trading days) |
+| `TRAIN_INITIAL_DAYS` | `252` | Initial training window for walk-forward backtest |
+| `WALK_FORWARD_STEP_DAYS` | `30` | Roll-forward step size (days) |
+| `WALK_FORWARD_EXPANDING` | `True` | `True` = expanding window; `False` = fixed rolling window |
+| `FORECAST_CONFIDENCE_LEVEL` | `0.95` | Default CI width for forecasts |
+| `ARIMA_MAX_P` / `ARIMA_MAX_Q` / `ARIMA_MAX_D` | `5` / `5` / `2` | `auto_arima` search bounds |
+| `ARIMA_SEASONAL` | `False` | Enable SARIMA search |
+| `PROPHET_YEARLY_SEASONALITY` | `True` | Prophet yearly component |
+| `PROPHET_WEEKLY_SEASONALITY` | `True` | Prophet weekly component |
+| `PROPHET_DAILY_SEASONALITY` | `False` | Prophet daily component |
+| `MIN_OBSERVATIONS_FOR_FORECAST` | `100` | Skip ticker if series is shorter than this |
+| `RANDOM_SEED` | `42` | Seed set at forecasting entry for reproducibility |
+| `FORECAST_COVERAGE_WARN_BELOW` | `0.70` | Log warning if CI coverage drops below this |
+| `FORECAST_COVERAGE_WARN_ABOVE` | `0.99` | Log info if CI coverage exceeds this |
 
 ---
 
@@ -131,7 +155,7 @@ finance-portfolio-da/
 │   ├── schemas.py            # Pandera schemas for pipeline data contracts
 │   ├── eda.py                # Step 3 — Exploratory analysis (DONE)
 │   ├── metrics.py            # Step 4 — Portfolio metrics (DONE)
-│   ├── forecasting.py        # Step 5 — ARIMA / Prophet
+│   ├── forecasting.py        # Step 5 — ARIMA / Prophet (DONE)
 │   ├── monte_carlo.py        # Step 6 — Simulation
 │   └── export.py             # Step 7 — Reports & exports
 ├── scenario_params/
@@ -199,6 +223,17 @@ Long-format, split- and dividend-adjusted (`auto_adjust=True`).
 
 Conventions: VaR/CVaR are **positive loss values**; max drawdown is a **negative value** (−0.20 = 20% loss).
 
+### `data/processed/` (Step 5 outputs)
+
+| File | Format | Contents |
+|---|---|---|
+| `forecasts.parquet` | Parquet (snappy) | Out-of-sample forecasts: `scenario_name`, `ticker`, `model_type`, `target`, `forecast_date`, `forecast`, `lower_ci`, `upper_ci`, `confidence_level` |
+| `forecast_metrics.parquet` | Parquet (snappy) | Walk-forward backtest metrics per (scenario, ticker, model): rmse, mae, mape, directional_accuracy, coverage_rate, mean_interval_width, n_folds, n_predictions |
+| `stationarity_tests.parquet` | Parquet (snappy) | ADF test results per (ticker, series_type): adf_statistic, p_value, is_stationary, critical_1pct, critical_5pct |
+| `forecasting_summary.json` | JSON | Per-scenario stats, best model per ticker (by RMSE), stationarity summary, config snapshot, run timestamp |
+
+Valid models: `arima_returns`, `arima_log_prices`, `prophet`, `naive_random_walk`, `naive_drift`, `naive_mean`. On model convergence failure, output falls back to `naive_random_walk`.
+
 ### `data/raw/metadata.json`
 
 ```json
@@ -237,7 +272,8 @@ Conventions: VaR/CVaR are **positive loss values**; max drawdown is a **negative
 | `loguru` | Structured logging to console + file |
 | `tenacity` | Retry / exponential backoff for flaky `.info` calls (`ConnectionError`, `TimeoutError`, `OSError`) |
 | `matplotlib` / `seaborn` / `plotly` | Visualisation |
-| `statsmodels` | ARIMA forecasting |
+| `statsmodels` | ADF stationarity test |
+| `pmdarima` | `auto_arima` model selection for ARIMA forecasting |
 | `prophet` | Prophet time-series forecasting |
 | `scipy` | Statistical metrics |
 | `fpdf2` / `jinja2` | PDF and HTML report generation |

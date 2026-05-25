@@ -11,7 +11,7 @@ from src import data_ingestion
 from src import data_cleaning
 from src import eda
 from src import metrics
-# from src import forecasting          # TODO: Step 5
+from src import forecasting
 # from src import monte_carlo          # TODO: Step 6
 # from src import export               # TODO: Step 7
 
@@ -47,7 +47,11 @@ def main():
     metrics_summary = metrics.run_metrics()
     logger.info(f"Metrics summary: {metrics_summary}")
 
-    # ── Step 5: Forecasting ──────── (pending) ────────────────────────────
+    # ── Step 5: Forecasting ───────────────────────────────────────────────
+    logger.info("STEP 5/7 — Forecasting")
+    forecasting_summary = forecasting.run_forecasting()
+    logger.info(f"Forecasting summary: {forecasting_summary}")
+
     # ── Step 6: Monte Carlo ──────── (pending) ────────────────────────────
     # ── Step 7: Export ───────────── (pending) ────────────────────────────
 

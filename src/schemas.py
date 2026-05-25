@@ -66,3 +66,39 @@ drawdown_schema = pa.DataFrameSchema(
         "drawdown_pct": pa.Column(float, checks=pa.Check.le(0), nullable=False),
     }
 )
+
+forecasts_schema = pa.DataFrameSchema(
+    {
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "model_type": pa.Column(pd.StringDtype(), nullable=False),
+        "target": pa.Column(pd.StringDtype(), nullable=False),
+        "forecast_date": pa.Column("datetime64[ns]", nullable=False),
+        "forecast": pa.Column(float, nullable=False),
+        "lower_ci": pa.Column(float, nullable=False),
+        "upper_ci": pa.Column(float, nullable=False),
+        "confidence_level": pa.Column(float, nullable=False),
+    }
+)
+
+forecast_metrics_schema = pa.DataFrameSchema(
+    {
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "model_type": pa.Column(pd.StringDtype(), nullable=False),
+        "metric_name": pa.Column(pd.StringDtype(), nullable=False),
+        "value": pa.Column(float, nullable=True),
+    }
+)
+
+stationarity_schema = pa.DataFrameSchema(
+    {
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "series_type": pa.Column(pd.StringDtype(), nullable=False),
+        "adf_statistic": pa.Column(float, nullable=True),
+        "p_value": pa.Column(float, nullable=True),
+        "is_stationary": pa.Column(bool, nullable=False),
+        "critical_1pct": pa.Column(float, nullable=True),
+        "critical_5pct": pa.Column(float, nullable=True),
+    }
+)

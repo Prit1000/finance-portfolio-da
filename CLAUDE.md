@@ -15,6 +15,7 @@ python main.py
 # Run a single module in isolation (smoke test pattern)
 python -c "from src import data_ingestion; print(data_ingestion.run_ingestion())"
 python -c "from src import metrics; print(metrics.run_metrics())"
+python -c "from src import forecasting; print(forecasting.run_forecasting())"
 
 # Install dependencies
 pip install -r requirements.txt
@@ -35,7 +36,7 @@ jupyter notebook notebooks/
 ## Architecture
 
 ### Entry Point & Config
-- `main.py` — calls each module's `run_*()` function in order; Steps 1–4 are wired; Steps 5–7 imports are commented out pending implementation
+- `main.py` — calls each module's `run_*()` function in order; Steps 1–5 are wired; Steps 6–7 imports are commented out pending implementation
 - `config.py` — single source of truth for all values (`TICKERS`, `DATE_START`, `DATE_END`, `FETCH_INTERVAL`, `MAX_RETRIES`, and all `Path` constants); every module imports from here, nothing is hardcoded elsewhere
 
 ### Pipeline Module Pattern
@@ -56,11 +57,11 @@ Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print
 | 2 | `data_cleaning.py` | **Done** | Normalise, fill gaps, handle outliers; write to `data/processed/` |
 | 3 | `eda.py` | **Done** | Exploratory charts/stats; save to `outputs/plots/` and `outputs/reports/` |
 | 4 | `metrics.py` | **Done** | Portfolio metrics (returns, Sharpe, drawdown, VaR, rolling); write to `data/processed/` and `outputs/reports/` |
-| 5 | `forecasting.py` | Pending | ARIMA / Prophet; iterates over `scenario_params/scenarios.csv` |
+| 5 | `forecasting.py` | **Done** | ARIMA / Prophet / naive baselines; walk-forward backtest; iterates over `scenario_params/scenarios.csv` |
 | 6 | `monte_carlo.py` | Pending | Monte Carlo simulation; iterates over `scenario_params/scenarios.csv` |
 | 7 | `export.py` | Pending | Write final reports to `outputs/reports/` and `data/exports/` |
 
-Stub files exist for steps 5–7 but contain no implementation yet.
+Stub files exist for steps 6–7 but contain no implementation yet.
 
 ### Data Flow
 
@@ -82,7 +83,7 @@ outputs/plots/   outputs/reports/   data/exports/
 - **`config.py` is the only place for configurable values.** No hardcoded tickers, dates, paths, or thresholds in any `src/` file.
 - **Long-format DataFrames only.** Wide-format breaks when new tickers are added. Wide pivots are permitted as transient local variables inside a single function but must never cross function boundaries or be persisted.
 - **`scenario_params/scenarios.csv`** drives `forecasting.py` and `monte_carlo.py` — each row is one named scenario with parameter overrides; modules iterate over rows rather than accepting hardcoded params.
-- **`src/schemas.py`** holds Pandera schemas enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks. Current schemas: `prices_clean_schema`, `returns_schema` (Steps 1–2); `metrics_per_ticker_schema`, `rolling_metrics_schema`, `drawdown_schema` (Step 4).
+- **`src/schemas.py`** holds Pandera schemas enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks. Current schemas: `prices_clean_schema`, `returns_schema` (Steps 1–2); `metrics_per_ticker_schema`, `rolling_metrics_schema`, `drawdown_schema` (Step 4); `forecasts_schema`, `forecast_metrics_schema`, `stationarity_schema` (Step 5).
 
 ### Spec-Driven Development
 
@@ -135,6 +136,23 @@ Key conventions enforced in Step 4:
 - `BENCHMARK_TICKER` (if set) must already be in `TICKERS`; no network calls allowed here
 - `PORTFOLIO_WEIGHTS` must sum to 1.0 (within 1e-6) or `ValueError` is raised
 - Historical (empirical) VaR/CVaR only — no parametric or Monte Carlo variants in v1
+
+**Step 5 outputs (`data/processed/` + `outputs/reports/`)** — Parquet files + one JSON summary:
+
+| File | Contents |
+|---|---|
+| `data/processed/forecasts.parquet` | Long format (scenario_name, ticker, model_type, target, forecast_date, forecast, lower_ci, upper_ci, confidence_level) |
+| `data/processed/forecast_metrics.parquet` | Long format (scenario_name, ticker, model_type, metric_name, value); metrics: rmse, mae, mape, directional_accuracy, coverage_rate, mean_interval_width, n_folds, n_predictions |
+| `data/processed/stationarity_tests.parquet` | ADF test results per (ticker, series_type); series_type ∈ {returns, log_prices} |
+| `outputs/reports/forecasting_summary.json` | Per-scenario stats, best model per ticker, stationarity counts, config snapshot, run timestamp |
+
+Key conventions enforced in Step 5:
+- Models: `arima_returns`, `arima_log_prices`, `prophet`, `naive_random_walk`, `naive_drift`, `naive_mean`
+- `target` in scenarios.csv must be `"returns"` or `"prices"`; `tickers` column accepts `"all"` or comma-separated uppercase symbols
+- Walk-forward backtesting uses `TRAIN_INITIAL_DAYS` (default 252) initial window, rolling by `WALK_FORWARD_STEP_DAYS` (default 30); `WALK_FORWARD_EXPANDING=True` grows the window
+- On convergence failure, falls back to `naive_random_walk` silently
+- Prophet requires `train_dates` to be passed; synthesised dates are used as a fallback with a warning
+- `RANDOM_SEED` is set at `run_forecasting()` entry for reproducibility
 
 ### Logging
 
