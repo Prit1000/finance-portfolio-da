@@ -10,7 +10,7 @@ import config
 from src import data_ingestion
 from src import data_cleaning
 from src import eda
-# from src import metrics              # TODO: Step 4
+from src import metrics
 # from src import forecasting          # TODO: Step 5
 # from src import monte_carlo          # TODO: Step 6
 # from src import export               # TODO: Step 7
@@ -42,7 +42,11 @@ def main():
     eda_summary = eda.run_eda()
     logger.info(f"EDA summary: {eda_summary}")
 
-    # ── Step 4: Metrics ──────────── (pending) ────────────────────────────
+    # ── Step 4: Metrics ───────────────────────────────────────────────────
+    logger.info("STEP 4/7 — Portfolio Metrics")
+    metrics_summary = metrics.run_metrics()
+    logger.info(f"Metrics summary: {metrics_summary}")
+
     # ── Step 5: Forecasting ──────── (pending) ────────────────────────────
     # ── Step 6: Monte Carlo ──────── (pending) ────────────────────────────
     # ── Step 7: Export ───────────── (pending) ────────────────────────────

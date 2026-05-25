@@ -34,3 +34,35 @@ returns_schema = pa.DataFrameSchema(
         "log_return": pa.Column(float, nullable=False),
     },
 )
+
+metrics_per_ticker_schema = pa.DataFrameSchema(
+    {
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "metric_name": pa.Column(pd.StringDtype(), nullable=False),
+        "value": pa.Column(float, nullable=True),
+        "category": pa.Column(
+            pd.StringDtype(),
+            nullable=False,
+            checks=pa.Check.isin(["return", "risk", "risk_adjusted"]),
+        ),
+    }
+)
+
+rolling_metrics_schema = pa.DataFrameSchema(
+    {
+        "date": pa.Column("datetime64[ns]", nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "metric_name": pa.Column(pd.StringDtype(), nullable=False),
+        "value": pa.Column(float, nullable=True),
+    }
+)
+
+drawdown_schema = pa.DataFrameSchema(
+    {
+        "date": pa.Column("datetime64[ns]", nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "close": pa.Column(float, checks=pa.Check.gt(0), nullable=False),
+        "running_peak": pa.Column(float, checks=pa.Check.gt(0), nullable=False),
+        "drawdown_pct": pa.Column(float, checks=pa.Check.le(0), nullable=False),
+    }
+)

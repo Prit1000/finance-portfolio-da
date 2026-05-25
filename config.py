@@ -41,3 +41,17 @@ EDA_TOP_N_CORRELATIONS: int = 3
 EDA_TOP_N_MOVES: int = 10
 EDA_PLOT_STYLE: str = "seaborn-v0_8-whitegrid"
 EDA_MIN_QQ_ROWS: int = 30
+
+# ── Metrics (Step 4) ──────────────────────────────────────────────────────────
+RISK_FREE_RATE: float = 0.04
+# Set to a ticker present in TICKERS (e.g. "^GSPC") to enable beta; None to skip.
+BENCHMARK_TICKER: str | None = None
+# None → equal-weighted; else must sum to 1.0 and cover all non-benchmark tickers.
+PORTFOLIO_WEIGHTS: dict[str, float] | None = None
+VAR_CONFIDENCE_LEVELS: list[float] = [0.95, 0.99]
+CVAR_CONFIDENCE_LEVELS: list[float] = [0.95]
+ROLLING_SHARPE_WINDOW: int = 90
+ROLLING_BETA_WINDOW: int = 60
+ROLLING_CORR_WINDOW: int = 60
+METRICS_TRADING_DAYS_PER_YEAR: int = 252
+EXCLUDE_BENCHMARK_FROM_PORTFOLIO: bool = True

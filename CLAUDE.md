@@ -14,6 +14,7 @@ python main.py
 
 # Run a single module in isolation (smoke test pattern)
 python -c "from src import data_ingestion; print(data_ingestion.run_ingestion())"
+python -c "from src import metrics; print(metrics.run_metrics())"
 
 # Install dependencies
 pip install -r requirements.txt
@@ -22,10 +23,10 @@ pip install -r requirements.txt
 pytest tests/
 
 # Run tests for a single module
-pytest tests/unit/test_03-eda.py -v
+pytest tests/unit/test_04-metrics.py -v
 
 # Run a single test by name
-pytest tests/unit/test_03-eda.py::test_load_processed_data_raises_on_missing_file -v
+pytest tests/unit/test_04-metrics.py::test_load_data_raises_on_missing_file -v
 
 # Launch notebooks
 jupyter notebook notebooks/
@@ -34,7 +35,7 @@ jupyter notebook notebooks/
 ## Architecture
 
 ### Entry Point & Config
-- `main.py` — calls each module's `run_*()` function in order; Steps 4–7 are currently commented out pending implementation
+- `main.py` — calls each module's `run_*()` function in order; Steps 1–4 are wired; Steps 5–7 imports are commented out pending implementation
 - `config.py` — single source of truth for all values (`TICKERS`, `DATE_START`, `DATE_END`, `FETCH_INTERVAL`, `MAX_RETRIES`, and all `Path` constants); every module imports from here, nothing is hardcoded elsewhere
 
 ### Pipeline Module Pattern
@@ -54,12 +55,12 @@ Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print
 | 1 | `data_ingestion.py` | **Done** | Fetch OHLCV + metadata from Yahoo Finance; write to `data/raw/` |
 | 2 | `data_cleaning.py` | **Done** | Normalise, fill gaps, handle outliers; write to `data/processed/` |
 | 3 | `eda.py` | **Done** | Exploratory charts/stats; save to `outputs/plots/` and `outputs/reports/` |
-| 4 | `metrics.py` | Pending | Portfolio metrics (returns, Sharpe, drawdown, etc.) |
+| 4 | `metrics.py` | **Done** | Portfolio metrics (returns, Sharpe, drawdown, VaR, rolling); write to `data/processed/` and `outputs/reports/` |
 | 5 | `forecasting.py` | Pending | ARIMA / Prophet; iterates over `scenario_params/scenarios.csv` |
 | 6 | `monte_carlo.py` | Pending | Monte Carlo simulation; iterates over `scenario_params/scenarios.csv` |
 | 7 | `export.py` | Pending | Write final reports to `outputs/reports/` and `data/exports/` |
 
-Stub files exist for steps 4–7 but contain no implementation yet.
+Stub files exist for steps 5–7 but contain no implementation yet.
 
 ### Data Flow
 
@@ -81,7 +82,7 @@ outputs/plots/   outputs/reports/   data/exports/
 - **`config.py` is the only place for configurable values.** No hardcoded tickers, dates, paths, or thresholds in any `src/` file.
 - **Long-format DataFrames only.** Wide-format breaks when new tickers are added. Wide pivots are permitted as transient local variables inside a single function but must never cross function boundaries or be persisted.
 - **`scenario_params/scenarios.csv`** drives `forecasting.py` and `monte_carlo.py` — each row is one named scenario with parameter overrides; modules iterate over rows rather than accepting hardcoded params.
-- **`src/schemas.py`** holds Pandera schemas (`prices_clean_schema`, `returns_schema`) enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks.
+- **`src/schemas.py`** holds Pandera schemas enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks. Current schemas: `prices_clean_schema`, `returns_schema` (Steps 1–2); `metrics_per_ticker_schema`, `rolling_metrics_schema`, `drawdown_schema` (Step 4).
 
 ### Spec-Driven Development
 
@@ -118,6 +119,22 @@ Each module has a spec in `.claude/specs/<step>.md` (e.g. `03-eda.md`). Tests ar
 | `outputs/plots/03_volatility/` | Rolling annualized vol per ticker; monthly vol heatmap |
 | `outputs/plots/04_correlations/` | Correlation matrix heatmap; top-pair scatter plots; sector heatmap |
 | `outputs/reports/eda_summary.json` | Distribution stats, monthly vol, correlation matrix, outlier report, plot counts |
+
+**Step 4 outputs (`data/processed/` + `outputs/reports/`)** — Parquet files + one JSON summary:
+
+| File | Contents |
+|---|---|
+| `data/processed/metrics_per_ticker.parquet` | Long format (ticker, metric_name, value, category); categories: `return`, `risk`, `risk_adjusted` |
+| `data/processed/portfolio_metrics.parquet` | Single-row wide format: Sharpe, Sortino, Calmar, VaR/CVaR, beta, diversification ratio |
+| `data/processed/rolling_metrics.parquet` | Long format (date, ticker, metric_name, value); metrics: `rolling_sharpe_90`, `rolling_volatility_90`, `rolling_beta_60`, `rolling_corr_60` |
+| `data/processed/drawdown_series.parquet` | Per (date, ticker): `close`, `running_peak`, `drawdown_pct` (always ≤ 0) |
+| `outputs/reports/metrics_summary.json` | Per-ticker and portfolio metrics, config snapshot, run timestamp |
+
+Key conventions enforced in Step 4:
+- VaR and CVaR are **positive loss values**; max drawdown is a **negative value** (−0.20 = 20% loss)
+- `BENCHMARK_TICKER` (if set) must already be in `TICKERS`; no network calls allowed here
+- `PORTFOLIO_WEIGHTS` must sum to 1.0 (within 1e-6) or `ValueError` is raised
+- Historical (empirical) VaR/CVaR only — no parametric or Monte Carlo variants in v1
 
 ### Logging
 
