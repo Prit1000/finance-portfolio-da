@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 1–6 are fully operational — module summaries are written to the pipeline log, not printed to console. Step 7 is pending implementation.
+All 7 steps are fully operational — module summaries are written to the pipeline log, not printed to console.
 
 ---
 
@@ -100,6 +100,21 @@ data/exports/mc_paths_full.parquet              — full simulation paths (simul
 outputs/reports/monte_carlo_summary.json        — run timestamp, GBM params, correlation matrix health, per-scenario stats, method comparison, config snapshot
 ```
 
+### Output after Step 7
+
+```
+data/exports/prices_clean.csv        — CSV copy of prices_clean.parquet
+data/exports/returns_daily.csv       — CSV copy of returns_daily.parquet
+data/exports/metrics_per_ticker.csv  — CSV copy of metrics_per_ticker.parquet
+data/exports/portfolio_metrics.csv   — CSV copy of portfolio_metrics.parquet
+data/exports/forecasts.csv           — CSV copy of forecasts.parquet
+data/exports/mc_metrics.csv          — CSV copy of mc_metrics.parquet
+data/exports/portfolio_report.xlsx   — Excel workbook: Portfolio Metrics, Per-Ticker Metrics (pivoted),
+                                        Drawdown Summary, Forecasts, MC Risk (pivoted), Config
+outputs/reports/pipeline_summary.json — master summary: run timestamp, pipeline_version, tickers,
+                                         date range, embedded step summaries (Steps 2–6), config snapshot
+```
+
 ---
 
 ## Configuration (`config.py`)
@@ -109,7 +124,7 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | Variable | Default | Description |
 |---|---|---|
 | `TICKERS` | `["AAPL", "MSFT", "GOOGL", "JPM", "XOM", "JNJ", "WMT"]` | Portfolio symbols |
-| `DATE_START` | `"2023-01-01"` | Fetch start date (YYYY-MM-DD) |
+| `DATE_START` | `"2022-01-01"` | Fetch start date (YYYY-MM-DD) |
 | `DATE_END` | `"2024-12-31"` | Fetch end date (YYYY-MM-DD) |
 | `FETCH_INTERVAL` | `"1d"` | Bar interval (daily only in v1) |
 | `MAX_RETRIES` | `3` | Retry attempts for flaky API calls |
@@ -163,6 +178,9 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | `MC_DRIFT_METHOD` | `"historical"` | `"historical"` = use mean log-return as drift; `"zero"` = risk-neutral |
 | `MC_TRADING_DAYS_PER_YEAR` | `252` | Annualization factor for GBM parameter estimation |
 | `MC_PROBABILITY_THRESHOLDS` | `[-0.20,-0.10,0.0,0.10,0.20]` | Return thresholds for loss/gain probability computation |
+| `EXPORT_CSV` | `True` | Write CSV copies of processed Parquet files to `data/exports/` |
+| `EXPORT_EXCEL` | `True` | Write `portfolio_report.xlsx` workbook to `data/exports/` |
+| `PIPELINE_VERSION` | `"1.0"` | Version string embedded in `pipeline_summary.json` |
 
 ---
 
@@ -181,7 +199,7 @@ finance-portfolio-da/
 │   ├── metrics.py            # Step 4 — Portfolio metrics (DONE)
 │   ├── forecasting.py        # Step 5 — ARIMA / Prophet (DONE)
 │   ├── monte_carlo.py        # Step 6 — Monte Carlo simulation (DONE)
-│   └── export.py             # Step 7 — Reports & exports
+│   └── export.py             # Step 7 — Reports & exports (DONE)
 ├── scenario_params/
 │   ├── scenarios.csv         # Parameter rows for Step 5 (Forecasting)
 │   └── mc_scenarios.csv      # Parameter rows for Step 6 (Monte Carlo)
@@ -317,6 +335,6 @@ Add rows to test multiple market assumptions in a single run. Each module iterat
 | `pmdarima` | `auto_arima` model selection for ARIMA forecasting |
 | `prophet` | Prophet time-series forecasting |
 | `scipy` | Statistical metrics |
-| `fpdf2` / `jinja2` | PDF and HTML report generation |
+| `openpyxl` | Excel workbook generation in Step 7 |
 | `pytest` | Test suite |
 | `jupyter` | Exploratory notebooks |

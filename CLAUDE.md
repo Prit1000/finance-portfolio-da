@@ -17,6 +17,7 @@ python -c "from src import data_ingestion; print(data_ingestion.run_ingestion())
 python -c "from src import metrics; print(metrics.run_metrics())"
 python -c "from src import forecasting; print(forecasting.run_forecasting())"
 python -c "from src import monte_carlo; print(monte_carlo.run_monte_carlo())"
+python -c "from src import export; print(export.run_export())"
 
 # Install dependencies
 pip install -r requirements.txt
@@ -37,7 +38,7 @@ jupyter notebook notebooks/
 ## Architecture
 
 ### Entry Point & Config
-- `main.py` — calls each module's `run_*()` function in order; Steps 1–6 are wired; Step 7 import is commented out pending implementation
+- `main.py` — calls each module's `run_*()` function in order; all 7 steps are wired
 - `config.py` — single source of truth for all values (`TICKERS`, `DATE_START`, `DATE_END`, `FETCH_INTERVAL`, `MAX_RETRIES`, and all `Path` constants); every module imports from here, nothing is hardcoded elsewhere
 
 ### Pipeline Module Pattern
@@ -60,9 +61,7 @@ Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print
 | 4 | `metrics.py` | **Done** | Portfolio metrics (returns, Sharpe, drawdown, VaR, rolling); write to `data/processed/` and `outputs/reports/` |
 | 5 | `forecasting.py` | **Done** | ARIMA / Prophet / naive baselines; walk-forward backtest; iterates over `scenario_params/scenarios.csv` |
 | 6 | `monte_carlo.py` | **Done** | Monte Carlo simulation (GBM, bootstrap, block bootstrap); iterates over `scenario_params/mc_scenarios.csv` |
-| 7 | `export.py` | Pending | Write final reports to `outputs/reports/` and `data/exports/` |
-
-A stub file exists for step 7 with no implementation yet.
+| 7 | `export.py` | **Done** | Consolidate outputs into CSV snapshots, Excel workbook, and `pipeline_summary.json` |
 
 ### Data Flow
 
@@ -175,6 +174,25 @@ Key conventions enforced in Step 6:
 - `MC_SAVE_FULL_PATHS=True` logs a critical warning if the output would exceed 1 GB
 - `mc_scenarios.csv` required columns: `scenario_name`, `method`, `horizon_days`, `n_simulations`; optional: `block_size`, `drift_method`, `tickers`, `simulate_portfolio`
 - `drift_method` in `mc_scenarios.csv` row overrides `config.MC_DRIFT_METHOD` for that scenario
+
+**Step 7 outputs (`data/exports/` + `outputs/reports/`)** — CSV/Excel snapshots + master JSON:
+
+| File | Contents |
+|---|---|
+| `data/exports/prices_clean.csv` | CSV copy of `prices_clean.parquet` |
+| `data/exports/returns_daily.csv` | CSV copy of `returns_daily.parquet` |
+| `data/exports/metrics_per_ticker.csv` | CSV copy of `metrics_per_ticker.parquet` |
+| `data/exports/portfolio_metrics.csv` | CSV copy of `portfolio_metrics.parquet` |
+| `data/exports/forecasts.csv` | CSV copy of `forecasts.parquet` |
+| `data/exports/mc_metrics.csv` | CSV copy of `mc_metrics.parquet` |
+| `data/exports/portfolio_report.xlsx` | Excel workbook: sheets = Portfolio Metrics, Per-Ticker Metrics (pivoted), Drawdown Summary, Forecasts, MC Risk (pivoted), Config |
+| `outputs/reports/pipeline_summary.json` | Master summary: run timestamp, `pipeline_version`, tickers, date range, embedded step summaries (Steps 2–6), config snapshot, export counts |
+
+Key conventions enforced in Step 7:
+- `EXPORT_CSV=False` skips all CSV writes; `EXPORT_EXCEL=False` skips the workbook — both default to `True` in `config.py`
+- `openpyxl` is required for Excel export; its absence logs a warning and skips (not an error)
+- Missing upstream Parquet files are skipped with a warning — export is partial-run safe
+- `PIPELINE_VERSION` from `config.py` is embedded in `pipeline_summary.json`
 
 ### Logging
 
