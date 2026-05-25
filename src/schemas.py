@@ -102,3 +102,58 @@ stationarity_schema = pa.DataFrameSchema(
         "critical_5pct": pa.Column(float, nullable=True),
     }
 )
+
+mc_paths_summary_schema = pa.DataFrameSchema(
+    {
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "method": pa.Column(pd.StringDtype(), nullable=False),
+        "day_offset": pa.Column(pd.Int64Dtype(), nullable=False),
+        "date": pa.Column("datetime64[ns]", nullable=False),
+        "percentile": pa.Column(float, nullable=False),
+        "value": pa.Column(float, nullable=False),
+    }
+)
+
+mc_terminal_schema = pa.DataFrameSchema(
+    {
+        # Dynamic columns terminal_p*/return_p* (one per percentile level) are not
+        # declared here — they vary with config.MC_PERCENTILES at runtime.
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "method": pa.Column(pd.StringDtype(), nullable=False),
+        "s0": pa.Column(float, nullable=False),
+        "terminal_mean": pa.Column(float, nullable=False),
+        "terminal_std": pa.Column(float, nullable=False),
+        "terminal_skew": pa.Column(float, nullable=False),
+        "terminal_kurtosis": pa.Column(float, nullable=False),
+    },
+    coerce=False,
+)
+
+mc_metrics_schema = pa.DataFrameSchema(
+    {
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "method": pa.Column(pd.StringDtype(), nullable=False),
+        "metric_name": pa.Column(pd.StringDtype(), nullable=False),
+        "value": pa.Column(float, nullable=False),
+    }
+)
+
+mc_drawdown_distribution_schema = pa.DataFrameSchema(
+    {
+        "scenario_name": pa.Column(pd.StringDtype(), nullable=False),
+        "ticker": pa.Column(pd.StringDtype(), nullable=False),
+        "method": pa.Column(pd.StringDtype(), nullable=False),
+        "mean_max_drawdown": pa.Column(float, checks=pa.Check.le(0), nullable=False),
+        "median_max_drawdown": pa.Column(float, checks=pa.Check.le(0), nullable=False),
+        "p5_max_drawdown": pa.Column(float, checks=pa.Check.le(0), nullable=False),
+        "p1_max_drawdown": pa.Column(float, checks=pa.Check.le(0), nullable=False),
+        "prob_drawdown_exceeds_20pct": pa.Column(
+            float,
+            checks=[pa.Check.ge(0.0), pa.Check.le(1.0)],
+            nullable=False,
+        ),
+    }
+)

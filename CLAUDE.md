@@ -16,6 +16,7 @@ python main.py
 python -c "from src import data_ingestion; print(data_ingestion.run_ingestion())"
 python -c "from src import metrics; print(metrics.run_metrics())"
 python -c "from src import forecasting; print(forecasting.run_forecasting())"
+python -c "from src import monte_carlo; print(monte_carlo.run_monte_carlo())"
 
 # Install dependencies
 pip install -r requirements.txt
@@ -36,7 +37,7 @@ jupyter notebook notebooks/
 ## Architecture
 
 ### Entry Point & Config
-- `main.py` — calls each module's `run_*()` function in order; Steps 1–5 are wired; Steps 6–7 imports are commented out pending implementation
+- `main.py` — calls each module's `run_*()` function in order; Steps 1–6 are wired; Step 7 import is commented out pending implementation
 - `config.py` — single source of truth for all values (`TICKERS`, `DATE_START`, `DATE_END`, `FETCH_INTERVAL`, `MAX_RETRIES`, and all `Path` constants); every module imports from here, nothing is hardcoded elsewhere
 
 ### Pipeline Module Pattern
@@ -58,10 +59,10 @@ Internal helpers are prefixed with `_`. All logging uses `loguru.logger`. `print
 | 3 | `eda.py` | **Done** | Exploratory charts/stats; save to `outputs/plots/` and `outputs/reports/` |
 | 4 | `metrics.py` | **Done** | Portfolio metrics (returns, Sharpe, drawdown, VaR, rolling); write to `data/processed/` and `outputs/reports/` |
 | 5 | `forecasting.py` | **Done** | ARIMA / Prophet / naive baselines; walk-forward backtest; iterates over `scenario_params/scenarios.csv` |
-| 6 | `monte_carlo.py` | Pending | Monte Carlo simulation; iterates over `scenario_params/scenarios.csv` |
+| 6 | `monte_carlo.py` | **Done** | Monte Carlo simulation (GBM, bootstrap, block bootstrap); iterates over `scenario_params/mc_scenarios.csv` |
 | 7 | `export.py` | Pending | Write final reports to `outputs/reports/` and `data/exports/` |
 
-Stub files exist for steps 6–7 but contain no implementation yet.
+A stub file exists for step 7 with no implementation yet.
 
 ### Data Flow
 
@@ -82,8 +83,8 @@ outputs/plots/   outputs/reports/   data/exports/
 - **`data_ingestion.py` is the only module that may import `yfinance` or make network calls.** All other modules read from `data/raw/` or `data/processed/`.
 - **`config.py` is the only place for configurable values.** No hardcoded tickers, dates, paths, or thresholds in any `src/` file.
 - **Long-format DataFrames only.** Wide-format breaks when new tickers are added. Wide pivots are permitted as transient local variables inside a single function but must never cross function boundaries or be persisted.
-- **`scenario_params/scenarios.csv`** drives `forecasting.py` and `monte_carlo.py` — each row is one named scenario with parameter overrides; modules iterate over rows rather than accepting hardcoded params.
-- **`src/schemas.py`** holds Pandera schemas enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks. Current schemas: `prices_clean_schema`, `returns_schema` (Steps 1–2); `metrics_per_ticker_schema`, `rolling_metrics_schema`, `drawdown_schema` (Step 4); `forecasts_schema`, `forecast_metrics_schema`, `stationarity_schema` (Step 5).
+- **`scenario_params/scenarios.csv`** drives `forecasting.py`; **`scenario_params/mc_scenarios.csv`** drives `monte_carlo.py`. Each row is one named scenario with parameter overrides; modules iterate over rows rather than accepting hardcoded params.
+- **`src/schemas.py`** holds Pandera schemas enforcing dtype/uniqueness contracts at module boundaries. Import and validate at the start of each downstream step rather than repeating inline checks. Current schemas: `prices_clean_schema`, `returns_schema` (Steps 1–2); `metrics_per_ticker_schema`, `rolling_metrics_schema`, `drawdown_schema` (Step 4); `forecasts_schema`, `forecast_metrics_schema`, `stationarity_schema` (Step 5); `mc_paths_summary_schema`, `mc_terminal_schema`, `mc_metrics_schema`, `mc_drawdown_distribution_schema` (Step 6).
 
 ### Spec-Driven Development
 
@@ -153,6 +154,27 @@ Key conventions enforced in Step 5:
 - On convergence failure, falls back to `naive_random_walk` silently
 - Prophet requires `train_dates` to be passed; synthesised dates are used as a fallback with a warning
 - `RANDOM_SEED` is set at `run_forecasting()` entry for reproducibility
+
+**Step 6 outputs (`data/processed/` + `outputs/reports/` + optional `data/exports/`)** — Parquet files + one JSON summary:
+
+| File | Contents |
+|---|---|
+| `data/processed/mc_paths_summary.parquet` | Long format (scenario_name, ticker, method, day_offset, date, percentile, value); P1–P99 per day |
+| `data/processed/mc_terminal_distribution.parquet` | Per (scenario, ticker, method): s0, terminal mean/std/skew/kurtosis, terminal_pN and return_pN per configured percentile |
+| `data/processed/mc_metrics.parquet` | Long format (scenario_name, ticker, method, metric_name, value); metrics: `var_95`, `var_99`, `cvar_95`, `prob_loss`, `prob_loss_10pct`, `prob_loss_20pct`, etc. |
+| `data/processed/mc_drawdown_distribution.parquet` | Per (scenario, ticker, method): mean/median/p5/p1 max drawdown (all ≤ 0) and `prob_drawdown_exceeds_20pct` |
+| `data/exports/mc_paths_full.parquet` | Full simulation paths in long format (simulation_id, day_offset, value) — only written if `MC_SAVE_FULL_PATHS=True` |
+| `outputs/reports/monte_carlo_summary.json` | Run timestamp, input stats, GBM params per ticker, correlation matrix health, per-scenario stats, method comparison, config snapshot, duration |
+
+Key conventions enforced in Step 6:
+- Three simulation methods: `gbm` (Geometric Brownian Motion with Itô correction), `bootstrap` (historical resample with replacement), `block_bootstrap` (circular block resample preserving serial correlation)
+- GBM uses Itô correction: `S(t+1) = S(t) * exp((μ - σ²/2) + σZ)` — without correction, expected returns are overstated
+- Correlated portfolio simulation uses Cholesky decomposition; non-PD correlation matrices are projected via eigenvalue clipping (≥1e-8) with a warning
+- Per-scenario seed = `(MC_RANDOM_SEED + md5(scenario_name)) % 2**32` — uses `hashlib.md5` (not `hash()`) for process-stable reproducibility
+- VaR and CVaR are **positive loss values**; max drawdown is a **negative value** — both match Step 4 convention
+- `MC_SAVE_FULL_PATHS=True` logs a critical warning if the output would exceed 1 GB
+- `mc_scenarios.csv` required columns: `scenario_name`, `method`, `horizon_days`, `n_simulations`; optional: `block_size`, `drift_method`, `tickers`, `simulate_portfolio`
+- `drift_method` in `mc_scenarios.csv` row overrides `config.MC_DRIFT_METHOD` for that scenario
 
 ### Logging
 

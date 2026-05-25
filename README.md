@@ -19,7 +19,7 @@ Yahoo Finance
      ▼ Step 7 — Export                outputs/reports/  data/exports/
 ```
 
-Steps 1–5 are fully operational — module summaries are written to the pipeline log, not printed to console. Steps 6–7 are pending implementation.
+Steps 1–6 are fully operational — module summaries are written to the pipeline log, not printed to console. Step 7 is pending implementation.
 
 ---
 
@@ -89,6 +89,17 @@ data/processed/stationarity_tests.parquet  — ADF test results per (ticker, ser
 outputs/reports/forecasting_summary.json   — per-scenario stats, best model per ticker, stationarity counts, config snapshot
 ```
 
+### Output after Step 6
+
+```
+data/processed/mc_paths_summary.parquet         — long format: (scenario_name, ticker, method, day_offset, date, percentile, value); P1–P99 per simulated day
+data/processed/mc_terminal_distribution.parquet — per (scenario, ticker, method): s0, terminal mean/std/skew/kurtosis, terminal_pN and return_pN per percentile
+data/processed/mc_metrics.parquet               — long format: (scenario_name, ticker, method, metric_name, value); metrics: var_95, var_99, cvar_95, prob_loss, etc.
+data/processed/mc_drawdown_distribution.parquet — per (scenario, ticker, method): mean/median/p5/p1 max drawdown and prob_drawdown_exceeds_20pct
+data/exports/mc_paths_full.parquet              — full simulation paths (simulation_id, day_offset, value); only written if MC_SAVE_FULL_PATHS=True
+outputs/reports/monte_carlo_summary.json        — run timestamp, GBM params, correlation matrix health, per-scenario stats, method comparison, config snapshot
+```
+
 ---
 
 ## Configuration (`config.py`)
@@ -124,7 +135,7 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | `ROLLING_CORR_WINDOW` | `60` | Rolling correlation window (trading days) |
 | `METRICS_TRADING_DAYS_PER_YEAR` | `252` | Annualization factor for metrics |
 | `EXCLUDE_BENCHMARK_FROM_PORTFOLIO` | `True` | Drop benchmark ticker from portfolio aggregation |
-| `SCENARIOS_CSV` | `Path("scenario_params/scenarios.csv")` | Scenario parameter file for Steps 5 & 6 |
+| `SCENARIOS_CSV` | `Path("scenario_params/scenarios.csv")` | Scenario parameter file for Step 5 |
 | `FORECAST_HORIZON_DAYS` | `30` | Default forecast horizon (trading days) |
 | `TRAIN_INITIAL_DAYS` | `252` | Initial training window for walk-forward backtest |
 | `WALK_FORWARD_STEP_DAYS` | `30` | Roll-forward step size (days) |
@@ -139,6 +150,19 @@ All behaviour is controlled here — no hardcoded values anywhere in `src/`.
 | `RANDOM_SEED` | `42` | Seed set at forecasting entry for reproducibility |
 | `FORECAST_COVERAGE_WARN_BELOW` | `0.70` | Log warning if CI coverage drops below this |
 | `FORECAST_COVERAGE_WARN_ABOVE` | `0.99` | Log info if CI coverage exceeds this |
+| `MC_SCENARIOS_CSV` | `Path("scenario_params/mc_scenarios.csv")` | Scenario parameter file for Step 6 |
+| `MC_DEFAULT_N_SIMULATIONS` | `10000` | Default simulation count per scenario |
+| `MC_DEFAULT_HORIZON_DAYS` | `30` | Default simulation horizon (trading days) |
+| `MC_DEFAULT_BLOCK_SIZE` | `10` | Default block size for block bootstrap |
+| `MC_RANDOM_SEED` | `42` | Base seed; per-scenario seed derived via `md5(scenario_name)` |
+| `MC_PERCENTILES` | `[1,5,25,50,75,95,99]` | Percentile bands computed for path summaries and terminal distribution |
+| `MC_VAR_LEVELS` | `[0.95, 0.99]` | Confidence levels for simulated VaR |
+| `MC_CVAR_LEVELS` | `[0.95]` | Confidence levels for simulated CVaR |
+| `MC_SAVE_FULL_PATHS` | `False` | Write all simulation paths to `data/exports/mc_paths_full.parquet` |
+| `MC_USE_CORRELATION` | `True` | Use Cholesky-correlated GBM for portfolio simulation |
+| `MC_DRIFT_METHOD` | `"historical"` | `"historical"` = use mean log-return as drift; `"zero"` = risk-neutral |
+| `MC_TRADING_DAYS_PER_YEAR` | `252` | Annualization factor for GBM parameter estimation |
+| `MC_PROBABILITY_THRESHOLDS` | `[-0.20,-0.10,0.0,0.10,0.20]` | Return thresholds for loss/gain probability computation |
 
 ---
 
@@ -156,10 +180,11 @@ finance-portfolio-da/
 │   ├── eda.py                # Step 3 — Exploratory analysis (DONE)
 │   ├── metrics.py            # Step 4 — Portfolio metrics (DONE)
 │   ├── forecasting.py        # Step 5 — ARIMA / Prophet (DONE)
-│   ├── monte_carlo.py        # Step 6 — Simulation
+│   ├── monte_carlo.py        # Step 6 — Monte Carlo simulation (DONE)
 │   └── export.py             # Step 7 — Reports & exports
 ├── scenario_params/
-│   └── scenarios.csv         # Parameter rows for Steps 5 & 6
+│   ├── scenarios.csv         # Parameter rows for Step 5 (Forecasting)
+│   └── mc_scenarios.csv      # Parameter rows for Step 6 (Monte Carlo)
 ├── tests/
 │   ├── conftest.py           # Shared fixtures (sample_prices_raw, tmp dirs)
 │   └── unit/                 # Per-module unit tests
@@ -234,6 +259,17 @@ Conventions: VaR/CVaR are **positive loss values**; max drawdown is a **negative
 
 Valid models: `arima_returns`, `arima_log_prices`, `prophet`, `naive_random_walk`, `naive_drift`, `naive_mean`. On model convergence failure, output falls back to `naive_random_walk`.
 
+### `data/processed/` (Step 6 outputs)
+
+| File | Format | Contents |
+|---|---|---|
+| `mc_paths_summary.parquet` | Parquet (snappy) | Long format: `scenario_name`, `ticker`, `method`, `day_offset`, `date`, `percentile`, `value` — P1–P99 per simulated day |
+| `mc_terminal_distribution.parquet` | Parquet (snappy) | Per (scenario, ticker, method): `s0`, terminal mean/std/skew/kurtosis, `terminal_pN` and `return_pN` per configured percentile |
+| `mc_metrics.parquet` | Parquet (snappy) | Long format: `scenario_name`, `ticker`, `method`, `metric_name`, `value` — `var_95`, `var_99`, `cvar_95`, `prob_loss`, probability thresholds |
+| `mc_drawdown_distribution.parquet` | Parquet (snappy) | Per (scenario, ticker, method): mean/median/p5/p1 max drawdown (all ≤ 0), `prob_drawdown_exceeds_20pct` |
+
+Conventions: VaR/CVaR are **positive loss values**; max drawdown is a **negative value** — matching Step 4. Portfolio paths start at 1.0 (normalised). Full simulation paths are only written if `MC_SAVE_FULL_PATHS=True` (to `data/exports/mc_paths_full.parquet`).
+
 ### `data/raw/metadata.json`
 
 ```json
@@ -256,7 +292,12 @@ Valid models: `arima_returns`, `arima_log_prices`, `prophet`, `naive_random_walk
 
 ## Scenario Parameters
 
-`scenario_params/scenarios.csv` drives Steps 5 (Forecasting) and 6 (Monte Carlo). Each row is one named scenario with parameter overrides. Add rows to test multiple market assumptions in a single run.
+Two separate CSV files drive the scenario-driven steps:
+
+- **`scenario_params/scenarios.csv`** — Step 5 (Forecasting). Required columns: `scenario_name`, `target` (`returns` or `prices`), `tickers` (`all` or comma-separated). Optional: `horizon_days`, `models`, `confidence_level`.
+- **`scenario_params/mc_scenarios.csv`** — Step 6 (Monte Carlo). Required columns: `scenario_name`, `method` (`gbm`, `bootstrap`, `block_bootstrap`), `horizon_days`, `n_simulations`. Optional: `block_size`, `drift_method` (`historical` or `zero`), `tickers`, `simulate_portfolio`.
+
+Add rows to test multiple market assumptions in a single run. Each module iterates over its CSV rather than accepting hardcoded parameters.
 
 ---
 

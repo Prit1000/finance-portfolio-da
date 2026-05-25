@@ -12,7 +12,7 @@ from src import data_cleaning
 from src import eda
 from src import metrics
 from src import forecasting
-# from src import monte_carlo          # TODO: Step 6
+from src import monte_carlo
 # from src import export               # TODO: Step 7
 
 
@@ -52,7 +52,11 @@ def main():
     forecasting_summary = forecasting.run_forecasting()
     logger.info(f"Forecasting summary: {forecasting_summary}")
 
-    # ── Step 6: Monte Carlo ──────── (pending) ────────────────────────────
+    # ── Step 6: Monte Carlo ───────────────────────────────────────────────
+    logger.info("STEP 6/7 — Monte Carlo Simulation")
+    mc_summary = monte_carlo.run_monte_carlo()
+    logger.info(f"Monte Carlo summary: {mc_summary}")
+
     # ── Step 7: Export ───────────── (pending) ────────────────────────────
 
     logger.info("=" * 60)

@@ -74,3 +74,18 @@ MIN_OBSERVATIONS_FOR_FORECAST: int = 100
 RANDOM_SEED: int = 42
 FORECAST_COVERAGE_WARN_BELOW: float = 0.70
 FORECAST_COVERAGE_WARN_ABOVE: float = 0.99
+
+# ── Monte Carlo (Step 6) ──────────────────────────────────────────────────────
+MC_SCENARIOS_CSV: Path = Path("scenario_params/mc_scenarios.csv")
+MC_DEFAULT_N_SIMULATIONS: int = 10000
+MC_DEFAULT_HORIZON_DAYS: int = 30
+MC_DEFAULT_BLOCK_SIZE: int = 10
+MC_RANDOM_SEED: int = 42
+MC_PERCENTILES: list[float] = [1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0]
+MC_VAR_LEVELS: list[float] = [0.95, 0.99]
+MC_CVAR_LEVELS: list[float] = [0.95]
+MC_SAVE_FULL_PATHS: bool = False
+MC_USE_CORRELATION: bool = True
+MC_DRIFT_METHOD: str = "historical"
+MC_TRADING_DAYS_PER_YEAR: int = 252
+MC_PROBABILITY_THRESHOLDS: list[float] = [-0.20, -0.10, 0.0, 0.10, 0.20]

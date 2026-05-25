@@ -1,0 +1,5 @@
+scenario_name,method,horizon_days,n_simulations,block_size,drift_method,tickers,simulate_portfolio,notes
+gbm_30d_10k,gbm,30,10000,,historical,all,true,GBM with historical drift and correlated portfolio
+bootstrap_30d_10k,bootstrap,30,10000,,historical,all,true,Historical bootstrap — empirical fat tails
+block_bootstrap_30d_10k,block_bootstrap,30,10000,10,historical,all,true,Block bootstrap — preserves serial correlation
+gbm_zero_drift_30d,gbm,30,10000,,zero,all,false,Risk-neutral GBM (zero drift)
