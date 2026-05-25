@@ -13,7 +13,7 @@ from src import eda
 from src import metrics
 from src import forecasting
 from src import monte_carlo
-# from src import export               # TODO: Step 7
+from src import export
 
 
 def main():
@@ -57,7 +57,10 @@ def main():
     mc_summary = monte_carlo.run_monte_carlo()
     logger.info(f"Monte Carlo summary: {mc_summary}")
 
-    # ── Step 7: Export ───────────── (pending) ────────────────────────────
+    # ── Step 7: Export ───────────────────────────────────────────────────
+    logger.info("STEP 7/7 — Export")
+    export_summary = export.run_export()
+    logger.info(f"Export summary: {export_summary}")
 
     logger.info("=" * 60)
     logger.info("PIPELINE COMPLETE")

@@ -9,7 +9,7 @@ from pathlib import Path
 TICKERS: list[str] = ["AAPL", "MSFT", "GOOGL", "JPM", "XOM", "JNJ", "WMT"]
 
 # ── Date range ────────────────────────────────────────────────────────────────
-DATE_START: str = "2023-01-01"
+DATE_START: str = "2022-01-01"
 DATE_END: str = "2024-12-31"
 
 # ── Fetch settings ────────────────────────────────────────────────────────────
@@ -89,3 +89,8 @@ MC_USE_CORRELATION: bool = True
 MC_DRIFT_METHOD: str = "historical"
 MC_TRADING_DAYS_PER_YEAR: int = 252
 MC_PROBABILITY_THRESHOLDS: list[float] = [-0.20, -0.10, 0.0, 0.10, 0.20]
+
+# ── Export (Step 7) ───────────────────────────────────────────────────────────
+EXPORT_CSV: bool = True
+EXPORT_EXCEL: bool = True
+PIPELINE_VERSION: str = "1.0"
